@@ -33,7 +33,27 @@ def softmax_loss_naive(W, X, y, reg):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+
+    for i in range(X.shape[0]):
+        scores = X[i].dot(W)
+        scores -= np.max(scores) #numeric instability
+        scores_normalised = np.exp(scores)/np.sum(np.exp(scores))
+        loss+= (-1)*np.log(scores_normalised[y[i]])
+
+        for j in range(W.shape[1]):
+            dW[:,j] += X[i]*scores_normalised[j]
+        dW[:,y[i]]-=X[i]
+
+    dW/=X.shape[0]
+    dW += 2*W*reg
+
+    loss/= X.shape[0]
+    loss += reg * np.sum(W * W)
+
+
+    #Checks
+    # print(scores.shape)
+    # print(scores_normalised.shape)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -58,7 +78,35 @@ def softmax_loss_vectorized(W, X, y, reg):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    scores = X.dot(W)
+    max_scores = np.max(scores,axis=1).reshape(-1,1)
+    scores -= max_scores
+    scores_normalised = np.exp(scores)/np.sum(np.exp(scores),axis=1,keepdims=True)
+    loss =  np.sum((-1)*np.log(scores_normalised[range(X.shape[0]),y]))
+
+    #Checks
+    # print(scores.shape)
+    # print(scores_normalised.shape)
+
+
+    #Using an indicator matrix
+    # y_ind = np.zeros_like(scores) # Indicator matrix : N x class
+    # y_ind[range(X.shape[0]),y]=1
+    # dW += X.T.dot(scores_normalised)
+    # dW -= X.T.dot(y_ind)
+
+    #Without indicator_matrix (Optimised)
+    scores_normalised[range(X.shape[0]),y] -= 1
+    dW += X.T.dot(scores_normalised)
+
+    #Checks
+
+
+    dW/=X.shape[0]
+    dW += 2*W*reg
+
+    loss/= X.shape[0]
+    loss += reg * np.sum(W * W)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 

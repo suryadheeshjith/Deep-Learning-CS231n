@@ -112,6 +112,7 @@ def svm_loss_vectorized(W, X, y, reg):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
+
     sub[sub>0]=1
     counts = np.sum(sub,axis=1)
     sub[range(sub.shape[0]),y] -= counts
