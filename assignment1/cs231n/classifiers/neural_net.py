@@ -80,7 +80,11 @@ class TwoLayerNet(object):
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        Z = X.dot(W1) + b1
+        Z = np.maximum(0,Z)
+        scores = Z.dot(W2) + b2
+
+
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -98,7 +102,12 @@ class TwoLayerNet(object):
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        max_scores = np.max(scores,axis=1).reshape(-1,1)
+        scores -= max_scores
+        scores_normalised = np.exp(scores)/np.sum(np.exp(scores),axis=1,keepdims=True)
+        loss =  np.sum((-1)*np.log(scores_normalised[range(X.shape[0]),y]))
+        loss/= X.shape[0]
+        loss += reg * np.sum(W1 * W1) + reg * np.sum(W2 * W2)
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -111,7 +120,40 @@ class TwoLayerNet(object):
         #############################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+
+
+        #Hidden -> Output layer gradients
+        scores_normalised[range(X.shape[0]),y] -= 1
+        scores_normalised/=X.shape[0] #Can avoid the four steps at XX
+        dW2 = Z.T.dot(scores_normalised)
+        db2 = np.sum(scores_normalised,axis=0)
+
+
+        #Checks
+        # print(scores_normalised.shape)
+        # print(Z.shape)
+
+        #Input -> Hidden layer gradients
+        common_derivative1 = scores_normalised.dot(W2.T)
+        common_derivative1 *=  (Z>0)
+        dW1 = X.T.dot(common_derivative1)
+        db1 = np.sum(common_derivative1,axis=0)
+
+
+        # XX
+        # dW2/= X.shape[0]
+        # db2/= X.shape[0]
+        # dW1/=X.shape[0]
+        # db1/=X.shape[0]
+
+        dW2 += 2*W2*reg
+        dW1 += 2*W1*reg
+
+        grads['W2'] = dW2
+        grads['b2'] = db2
+        grads['W1'] = dW1
+        grads['b1'] = db1
+
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -156,7 +198,9 @@ class TwoLayerNet(object):
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-            pass
+            indx = np.random.choice(X.shape[0],batch_size)
+            X_batch = X[indx]
+            y_batch = y[indx]
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -172,7 +216,10 @@ class TwoLayerNet(object):
             #########################################################################
             # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-            pass
+            self.params['W1'] -= learning_rate*grads['W1']
+            self.params['W2'] -= learning_rate*grads['W2']
+            self.params['b1'] -= learning_rate*grads['b1']
+            self.params['b2'] -= learning_rate*grads['b2']
 
             # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
@@ -218,7 +265,11 @@ class TwoLayerNet(object):
         ###########################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        y_pred = self.loss(X)
+        y_pred = np.argmax(y_pred,axis=1)
+
+        #Checks
+        #print("Y pred shape :"+str(y_pred.shape))
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
