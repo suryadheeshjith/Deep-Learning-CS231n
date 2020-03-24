@@ -27,7 +27,11 @@ def affine_forward(x, w, b):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    initial_shape = x.shape
+    x = x.reshape(x.shape[0],-1)
+    out = x.dot(w)+b
+    x = x.reshape(initial_shape)
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -60,7 +64,11 @@ def affine_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+
+    dx_trans = dout.dot(w.T)
+    dx = dx_trans.reshape(x.shape)
+    dw = (x.reshape(x.shape[0],-1)).T.dot(dout)
+    db = dout.sum(axis=0)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -86,7 +94,7 @@ def relu_forward(x):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    out = np.maximum(x,0)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -113,7 +121,7 @@ def relu_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    dx = dout * (x>0)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -187,13 +195,29 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         #                                                                     #
         # Note that though you should be keeping track of the running         #
         # variance, you should normalize the data based on the standard       #
-        # deviation (square root of variance) instead!                        # 
+        # deviation (square root of variance) instead!                        #
         # Referencing the original paper (https://arxiv.org/abs/1502.03167)   #
         # might prove to be helpful.                                          #
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        mu = x.mean(axis=0)
+        var = x.var(axis=0) + eps
+        std = np.sqrt(var)
+        z = (x - mu)/std
+        out = gamma * z + beta
+        running_mean = momentum*running_mean + (1 - momentum)*mu
+        running_var = momentum*running_var + (1 - momentum)*var
+
+        # See pdf in local repo
+        cache = {}
+        cache['gamma'] = gamma
+        cache['norm'] = z
+        cache['mu'] = mu
+        cache['std'] = std
+        cache['var'] = var
+        cache['x'] = x
+
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -208,7 +232,9 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         #######################################################################
         # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-        pass
+        x = x - running_mean
+        x = x/np.sqrt(running_var)
+        out = gamma*x + beta
 
         # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
         #######################################################################
@@ -250,7 +276,53 @@ def batchnorm_backward(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    # See pdf in local repo
+
+    gamma = cache['gamma']
+    norm = cache['norm']
+    mu = cache['mu']
+    std = cache['std']
+    var = cache['var']
+    x = cache['x']
+
+    dbeta = np.sum(dout,axis=0)
+    dgamma = np.sum(dout * norm,axis=0)
+
+    N = dout.shape[0]
+    df_dnorm = gamma
+
+    #Norm derivatives
+    dnorm_dx = 1.0/std
+    print("dnorm_dx shape: ",dnorm_dx.shape)
+    dnorm_dmean = -1.0/std
+    print("dnorm_dmean shape: ",dnorm_dmean.shape)
+    dnorm_dstd = -1.0*(x-mu)*(std**-2)
+    print("dnorm_dstd shape: ",dnorm_dstd.shape)
+
+    #Mean derivative
+    dmean_dx = 1.0/N
+
+    #Std derivatives
+    dstd_dvar = 0.5 * (var**-0.5)
+    print("dstd_dvar shape: ",dstd_dvar.shape)
+    dvar_dx1 = 2.0/N * (x-mu)
+    print("dvar_dx1 shape: ",dvar_dx1.shape)
+    dvar_dmean = 2.0/N * np.sum(x-mu,axis=0) * -1.0
+    print("dvar_dmean shape: ",dvar_dmean.shape)
+    dvar_dx2 = dvar_dmean * dmean_dx
+    print("dvar_dx2 shape: ",dvar_dx2.shape)
+
+
+
+    #The second term will broadcast to first term. ex. dmean_dx * np.ones((dout.shape)) is the actual form and also works.
+    #Even dvar_dx2 will broadcast to dvar_dx1. dvar_dx2 * np.ones((dout.shape))  will not make a change.
+
+    dx = dout*df_dnorm*dnorm_dx + \
+         np.sum(dout*df_dnorm*dnorm_dmean,axis=0)*dmean_dx +\
+         np.sum(dout*df_dnorm*dnorm_dstd,axis=0)*dstd_dvar*(dvar_dx1 + dvar_dx2)
+
+    print("Second term shape : ",np.array(np.sum(dout*df_dnorm*dnorm_dmean,axis=0)*dmean_dx).shape)
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -266,9 +338,9 @@ def batchnorm_backward_alt(dout, cache):
 
     For this implementation you should work out the derivatives for the batch
     normalizaton backward pass on paper and simplify as much as possible. You
-    should be able to derive a simple expression for the backward pass. 
+    should be able to derive a simple expression for the backward pass.
     See the jupyter notebook for more hints.
-     
+
     Note: This implementation should expect to receive the same cache variable
     as batchnorm_backward, but might not use all of the values in the cache.
 
@@ -285,7 +357,19 @@ def batchnorm_backward_alt(dout, cache):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    gamma = cache['gamma']
+    norm = cache['norm']
+    std = cache['std']
+    x = cache['x']
+
+    dbeta = np.sum(dout,axis=0)
+    dgamma = np.sum(dout * norm,axis=0)
+
+    N = dout.shape[0]
+    dnorm = dout*gamma
+    dnorm_sum = np.sum(dout*gamma,axis=0)
+    dx = dnorm - dnorm_sum * 1.0/N - np.sum(dnorm*norm,axis=0)*norm/N
+    dx/= std
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ###########################################################################
@@ -301,7 +385,7 @@ def layernorm_forward(x, gamma, beta, ln_param):
 
     During both training and test-time, the incoming data is normalized per data-point,
     before being scaled by gamma and beta parameters identical to that of batch normalization.
-    
+
     Note that in contrast to batch normalization, the behavior during train and test-time for
     layer normalization are identical, and we do not need to keep track of running averages
     of any sort.
@@ -484,8 +568,8 @@ def conv_forward_naive(x, w, b, conv_param):
     - conv_param: A dictionary with the following keys:
       - 'stride': The number of pixels between adjacent receptive fields in the
         horizontal and vertical directions.
-      - 'pad': The number of pixels that will be used to zero-pad the input. 
-        
+      - 'pad': The number of pixels that will be used to zero-pad the input.
+
 
     During padding, 'pad' zeros should be placed symmetrically (i.e equally on both sides)
     along the height and width axes of the input. Be careful not to modfiy the original
@@ -553,7 +637,7 @@ def max_pool_forward_naive(x, pool_param):
       - 'pool_width': The width of each pooling region
       - 'stride': The distance between adjacent pooling regions
 
-    No padding is necessary here. Output size is given by 
+    No padding is necessary here. Output size is given by
 
     Returns a tuple of:
     - out: Output data, of shape (N, C, H', W') where H' and W' are given by
@@ -683,7 +767,7 @@ def spatial_batchnorm_backward(dout, cache):
 def spatial_groupnorm_forward(x, gamma, beta, G, gn_param):
     """
     Computes the forward pass for spatial group normalization.
-    In contrast to layer normalization, group normalization splits each entry 
+    In contrast to layer normalization, group normalization splits each entry
     in the data into G contiguous pieces, which it then normalizes independently.
     Per feature shifting and scaling are then applied to the data, in a manner identical to that of batch normalization and layer normalization.
 
@@ -706,7 +790,7 @@ def spatial_groupnorm_forward(x, gamma, beta, G, gn_param):
     # This will be extremely similar to the layer norm implementation.        #
     # In particular, think about how you could transform the matrix so that   #
     # the bulk of the code is similar to both train-time batch normalization  #
-    # and layer normalization!                                                # 
+    # and layer normalization!                                                #
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
