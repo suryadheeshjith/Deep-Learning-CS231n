@@ -151,6 +151,7 @@ def adam(w, dw, config=None):
     ###########################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
+    
 
     config['t'] +=1
     config['m'] = config['beta1']*config['m'] + (1-config['beta1'])*dw

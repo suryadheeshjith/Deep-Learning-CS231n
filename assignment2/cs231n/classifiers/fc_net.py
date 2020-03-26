@@ -241,6 +241,7 @@ class FullyConnectedNet(object):
         if self.normalization=='layernorm':
             self.bn_params = [{} for i in range(self.num_layers - 1)]
 
+
         # Cast all parameters to the correct datatype
         for k, v in self.params.items():
             self.params[k] = v.astype(dtype)
@@ -363,6 +364,8 @@ def affine_norm_relu_forward(X, W, b, gamma, beta, bn_params,normalization):
     # batch/layer norm
     if normalization == 'batchnorm':
        out, bn_cache = batchnorm_forward(out, gamma, beta, bn_params)
+    elif normalization == 'layernorm':
+        out, bn_cache = layernorm_forward(out, gamma, beta, bn_params)
 
     # relu
     out, relu_cache = relu_forward(out)
@@ -379,6 +382,8 @@ def affine_norm_relu_backward(dout, cache, normalization):
     # batch norm
     if normalization == 'batchnorm':
        dout, dgamma, dbeta = batchnorm_backward_alt(dout, bn_cache)
+    elif normalization == 'layernorm':
+       dout, dgamma, dbeta = layernorm_backward(dout, bn_cache)
 
     # affine layer
     dx, dw, db = affine_backward(dout, fc_cache)
