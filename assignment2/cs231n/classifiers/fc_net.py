@@ -290,7 +290,7 @@ class FullyConnectedNet(object):
                 beta  = self.params['beta'+str(i)]
                 bn_params = self.bn_params[i-1]
 
-            temp,cache_item = affine_norm_relu_forward(temp,W,b, gamma, beta, bn_params, self.normalization)
+            temp,cache_item = affine_norm_relu_forward(temp,W,b, gamma, beta, bn_params, self.dropout_param, self.normalization,self.use_dropout)
             cache.append(cache_item) #Cache_items from 0 - num_layers-2
 
         W = self.params['W'+str(self.num_layers)]
@@ -339,7 +339,7 @@ class FullyConnectedNet(object):
 
 
         for i in range(self.num_layers - 2, -1, -1):
-            dx, dW, db, dgamma, dbeta = affine_norm_relu_backward(dx, cache[i], self.normalization)
+            dx, dW, db, dgamma, dbeta = affine_norm_relu_backward(dx, cache[i], self.normalization,self.use_dropout)
 
             if self.normalization != None:
                grads['gamma'+str(i+1)] = dgamma
@@ -355,9 +355,10 @@ class FullyConnectedNet(object):
         return loss, grads
 
 
-def affine_norm_relu_forward(X, W, b, gamma, beta, bn_params,normalization):
+def affine_norm_relu_forward(X, W, b, gamma, beta, bn_params,dropout_param,normalization,dropout):
 
     bn_cache = None
+    dropout_cache = None
     # affine layer
     out, fc_cache = affine_forward(X,W,b)
 
@@ -369,13 +370,22 @@ def affine_norm_relu_forward(X, W, b, gamma, beta, bn_params,normalization):
 
     # relu
     out, relu_cache = relu_forward(out)
-    return out, (fc_cache, bn_cache, relu_cache)
+
+    #dropout
+    if dropout:
+        out,dropout_cache = dropout_forward(out,dropout_param)
+
+    return out, (fc_cache, bn_cache, relu_cache, dropout_cache)
 
 
-def affine_norm_relu_backward(dout, cache, normalization):
+
+def affine_norm_relu_backward(dout, cache, normalization,dropout):
     dgamma, dbeta = None,None
-    fc_cache, bn_cache, relu_cache = cache
+    fc_cache, bn_cache, relu_cache,dropout_cache = cache
 
+    #dropout
+    if dropout:
+        dout = dropout_backward(dout,dropout_cache)
     # relu
     dout = relu_backward(dout, relu_cache)
 
@@ -386,5 +396,7 @@ def affine_norm_relu_backward(dout, cache, normalization):
        dout, dgamma, dbeta = layernorm_backward(dout, bn_cache)
 
     # affine layer
-    dx, dw, db = affine_backward(dout, fc_cache)
-    return dx, dw, db, dgamma, dbeta
+    dout, dW, db = affine_backward(dout, fc_cache)
+
+
+    return dout, dW, db, dgamma, dbeta
