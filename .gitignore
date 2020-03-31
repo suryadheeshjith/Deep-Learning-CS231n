@@ -2,3 +2,7 @@
 Extras/.ipynb_checkpoints
 Extras/*.pdf
 Requirements/
+assignment3/cs231n/datasets/coco_captioning/
+assignment3/cs231n/datasets/imagenet_val_25.npz
+assignment3/cs231n/datasets/squeezenet.ckpt.data-00000-of-00001
+assignment3/cs231n/datasets/squeezenet.ckpt.index
