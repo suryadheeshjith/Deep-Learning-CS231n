@@ -36,7 +36,8 @@ def rnn_step_forward(x, prev_h, Wx, Wh, b):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    next_h = np.tanh(x.dot(Wx)+prev_h.dot(Wh)+b)
+    cache = (x, prev_h, Wx, Wh, b, next_h)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -69,7 +70,14 @@ def rnn_step_backward(dnext_h, cache):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x, prev_h, Wx, Wh, b, tanh = cache
+    dtanh = 1 - tanh**2
+    dnext_dtanh = dnext_h*dtanh
+    dx = dnext_dtanh.dot(Wx.T)
+    dprev_h = dnext_dtanh.dot(Wh.T)
+    dWx = x.T.dot(dnext_dtanh)
+    dWh = prev_h.T.dot(dnext_dtanh)
+    db = dnext_dtanh.sum(axis=0)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -104,7 +112,18 @@ def rnn_forward(x, h0, Wx, Wh, b):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N,T,D = x.shape
+    _,H = h0.shape
+    h = np.zeros((N,T,H))
+    cache = []
+
+    prev_h = h0
+    for i in range(T):
+        next_h,cache_h = rnn_step_forward(x[:,i,:], prev_h, Wx, Wh, b)
+        cache.append(cache_h)
+        h[:,i,:] = next_h
+        prev_h = next_h
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -118,9 +137,9 @@ def rnn_backward(dh, cache):
     Compute the backward pass for a vanilla RNN over an entire sequence of data.
 
     Inputs:
-    - dh: Upstream gradients of all hidden states, of shape (N, T, H). 
-    
-    NOTE: 'dh' contains the upstream gradients produced by the 
+    - dh: Upstream gradients of all hidden states, of shape (N, T, H).
+
+    NOTE: 'dh' contains the upstream gradients produced by the
     individual loss functions at each timestep, *not* the gradients
     being passed between timesteps (which you'll have to compute yourself
     by calling rnn_step_backward in a loop).
@@ -140,7 +159,24 @@ def rnn_backward(dh, cache):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N,T,H = dh.shape
+    dx1, dprev_h1, dWx1, dWh1, db1 = rnn_step_backward(dh[:,T-1,:], cache[T-1])
+    D = dx1.shape[1]
+    dx = np.zeros((N,T,D))
+
+    dx[:,T-1,:] = dx1
+    dWx= dWx1
+    dWh= dWh1
+    db=db1
+
+    for i in range(T-2,-1,-1):
+        dx1, dprev_h1, dWx1, dWh1, db1 = rnn_step_backward(dh[:,i,:]+dprev_h1, cache[i])
+        dx[:,i,:] = dx1
+        dWx+= dWx1
+        dWh+= dWh1
+        db+=db1
+    dh0 = dprev_h1
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -172,7 +208,11 @@ def word_embedding_forward(x, W):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    # print("x.shape",x.shape)
+    # print("W.shape",W.shape)
+    # print("W[x]",W[x])
+    out = W[x]
+    cache = (x, W)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -205,7 +245,9 @@ def word_embedding_backward(dout, cache):
     ##############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x, W = cache
+    dW = np.zeros_like(W)
+    np.add.at(dW,x,dout)
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -257,7 +299,14 @@ def lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    a = x.dot(Wx) + prev_h.dot(Wh) + b
+    ai,af,ao,ag = np.split(a, 4,axis=1)
+    i,f,o = sigmoid(ai),sigmoid(af),sigmoid(ao)
+    g = np.tanh(ag)
+    next_c = f * prev_c + i * g
+    next_h = o * np.tanh(next_c)
+    cache = {'x':x, 'a':a, 'i':i, 'f':f, 'o':o, 'g':g, 'next_c':next_c,
+                    'next_h':next_h, 'prev_c':prev_c, 'prev_h':prev_h, 'Wh':Wh, 'Wx':Wx}
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -293,7 +342,33 @@ def lstm_step_backward(dnext_h, dnext_c, cache):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    x,a,i,f,o,g,next_c,next_h,prev_c,prev_h,Wh,Wx = cache['x'],cache['a'],cache['i'],cache['f'],cache['o'],cache['g'],cache['next_c'],\
+                                                    cache['next_h'],cache['prev_c'],cache['prev_h'],cache['Wh'],cache['Wx']
+
+
+    dnext_h__dnext_c = o * (1 - np.tanh(next_c)**2)
+    dnext_c += dnext_h * dnext_h__dnext_c
+
+    dprev_c = dnext_c * f
+
+    dk_df = dnext_c * prev_c
+    dk_di = dnext_c * g
+    dk_dg = dnext_c * i
+    dk_do = dnext_h * np.tanh(next_c)
+
+    dk_dai = dk_di * (i*(1-i))
+    dk_daf = dk_df * (f*(1-f))
+    dk_dao = dk_do * (o*(1-o))
+    dk_dag = dk_dg * (1 - g**2)
+
+    dk_da = np.concatenate((dk_dai,dk_daf,dk_dao,dk_dag),axis=1)
+
+    dx = dk_da.dot(Wx.T)
+    dWx = x.T.dot(dk_da)
+    dprev_h = dk_da.dot(Wh.T)
+    dWh = prev_h.T.dot(dk_da)
+    db = np.sum(dk_da,axis=0)
+
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -332,7 +407,19 @@ def lstm_forward(x, h0, Wx, Wh, b):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N,T,D = x.shape
+    _,H = h0.shape
+    h = np.zeros((N,T,H))
+    cache = []
+
+    prev_h = h0
+    prev_c = np.zeros((N,H))
+    for i in range(T):
+        next_h, next_c, cache_h = lstm_step_forward(x[:,i,:],prev_h, prev_c, Wx, Wh, b)
+        cache.append(cache_h)
+        h[:,i,:] = next_h
+        prev_h = next_h
+        prev_c = next_c
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
@@ -364,7 +451,24 @@ def lstm_backward(dh, cache):
     #############################################################################
     # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
 
-    pass
+    N,T,H = dh.shape
+    dnext_c0 = np.zeros((N,H)) ###### Init to 0s
+    dx1, dprev_h1, dprev_c1, dWx1, dWh1, db1 = lstm_step_backward(dh[:,T-1,:], dnext_c0, cache[T-1])
+    D = dx1.shape[1]
+    dx = np.zeros((N,T,D))
+
+    dx[:,T-1,:] = dx1
+    dWx= dWx1
+    dWh= dWh1
+    db=db1
+
+    for i in range(T-2,-1,-1):
+        dx1, dprev_h1, dprev_c1, dWx1, dWh1, db1 = lstm_step_backward(dh[:,i,:]+dprev_h1, dprev_c1, cache[i])
+        dx[:,i,:] = dx1
+        dWx+= dWx1
+        dWh+= dWh1
+        db+=db1
+    dh0 = dprev_h1
 
     # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
     ##############################################################################
