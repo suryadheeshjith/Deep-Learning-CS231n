@@ -10,7 +10,7 @@ except ImportError:
 
 from cs231n.im2col import *
 
-
+ 
 def conv_forward_im2col(x, w, b, conv_param):
     """
     A fast implementation of the forward pass for a convolutional layer
