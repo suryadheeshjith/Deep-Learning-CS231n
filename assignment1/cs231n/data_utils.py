@@ -14,7 +14,7 @@ def load_pickle(f):
     elif version[0] == '3':
         return  pickle.load(f, encoding='latin1')
     raise ValueError("invalid python version: {}".format(version))
-
+ 
 def load_CIFAR_batch(filename):
     """ load single batch of cifar """
     with open(filename, 'rb') as f:
